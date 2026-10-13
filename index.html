@@ -44,6 +44,10 @@ dialog{border:1px solid var(--bd);border-radius:10px;background:var(--card);colo
 .mu{color:var(--mu)}
 :root{color-scheme:light dark}:root[data-theme="light"]{color-scheme:light}:root[data-theme="dark"]{color-scheme:dark}
 .sc,.tw{scrollbar-width:thin;scrollbar-color:var(--mu) var(--hl)}
+#msp{position:fixed;z-index:30;width:330px;max-width:calc(100vw - 16px);max-height:min(440px,65vh);display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.4)}#msp[hidden]{display:none}
+#msp .mh{font-size:12px;color:var(--mu)}#msp .mh b{color:var(--tx)}#msp .ma{display:flex;gap:6px}#msp .ma .btn{flex:1}#msl{overflow:auto;border-top:1px solid var(--bd);padding-top:4px;scrollbar-width:thin;scrollbar-color:var(--mu) var(--hl)}
+#msl label{display:flex;gap:8px;align-items:center;padding:4px 6px;border-radius:5px;cursor:pointer}#msl label:hover{background:var(--hl)}#msl label input{margin:0;flex:none}#msl .tn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#msl .tc{color:var(--mu);font-size:11px}#msl .to{color:var(--warn);font-size:11px;white-space:nowrap}
+.rtc{white-space:normal;min-width:320px}.rtc .tag b{cursor:pointer;margin-left:4px;color:var(--mu)}.rtc .tag b:hover{color:var(--bad)}
 #vp{max-height:min(420px,50vh)}#vp td{padding:4px 8px}#vp td:last-child{white-space:normal;min-width:300px}
 </style></head><body>
 <header><div class="brand"><div class="logo">B</div><h1>BAUKO DISPATCH CHECKER<small>Bauko Hub, station 3634</small></h1></div><nav><button class="btn sm" data-tab="check">Dispatch check</button><button class="btn sm s" data-tab="fin">Final result</button><button class="btn sm s" data-tab="rt">Rider towns</button></nav><span id="spxStatus" class="spx" role="status" aria-live="polite">SPX Bridge: CONNECTING...</span><div id="chips"></div><button class="btn sm s" id="theme" title="Switch light or dark">Theme</button></header>
@@ -98,7 +102,7 @@ dialog{border:1px solid var(--bd);border-radius:10px;background:var(--card);colo
 <section class="card"><h2>Not dispatched: in inventory, no rider delivering</h2><div class="tw" id="fnd"></div></section></div>
 <div id="tr" style="display:none;gap:14px">
 <section class="card"><h2>Rider Town IDs · handled towns per rider</h2>
-<p class="mu" style="margin-top:0">Enter the Town Names each rider handles (comma-separated, matched ignoring case/spaces). Saved in this browser; edit any time. The Dispatch Check uses these to decide each rider's expected parcels.</p>
+<p class="mu" style="margin-top:0">Click <b>Select towns</b> beside a rider and tick every town that rider handles. The list comes from the imported Inventory. A town can be assigned to more than one rider. Saved in this browser; edit any time. The Dispatch Check uses these to decide each rider's expected parcels.</p>
 <div class="row" style="margin-bottom:10px"><label class="f">Add Rider ID<input id="nrid" list="riders" placeholder="e.g. 391381"></label><button class="btn" id="nradd">Add rider</button><label class="btn s">IMPORT RIDERS (Active only)<input type="file" id="fRo" accept=".csv,.txt,.xlsx,.xls" hidden></label></div>
 <div id="rosum" class="mu" style="margin-bottom:10px"></div>
 <div class="tw" id="rtt"></div></section>
@@ -110,6 +114,7 @@ dialog{border:1px solid var(--bd);border-radius:10px;background:var(--card);colo
 <div class="row"><button class="btn" id="dma">Apply</button><button class="btn s" id="dmc">Cancel</button></div></dialog>
 <dialog id="dx"><h2>Export exceptions (CSV)</h2><textarea id="dxt" rows="12" style="width:100%;font-family:monospace;font-size:12px" readonly></textarea>
 <div class="row" style="margin-top:8px"><button class="btn" id="dxc">Copy</button><button class="btn s" id="dxd">Download .csv</button><button class="btn s" id="dxx">Close</button></div></dialog>
+<div id="msp" hidden role="dialog" aria-label="Select towns"><div class="mh" id="msh"></div><input id="mss" type="search" placeholder="Search towns…" autocomplete="off"><div class="ma"><button class="btn sm s" data-a="all" type="button">Select all shown</button><button class="btn sm s" data-a="none" type="button">Clear all</button></div><div id="msl"></div></div>
 <div id="toast"></div>
 
 <script>
@@ -376,15 +381,41 @@ function renderRT(){
  const ids=Object.keys(S.rt).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})),own={},ck={},cnt={};let blank=0;
  ids.forEach(i=>S.rt[i].forEach(t=>(own[nk(t)]=own[nk(t)]||[]).push(i)));
  if(S.inv)S.inv.recs.forEach(r=>{if(r.otherStation)return;if(!r.townName){blank++;return}ck[nk(r.townName)]=(ck[nk(r.townName)]||0)+1;cnt[r.townName]=(cnt[r.townName]||0)+1});
- $('rtt').innerHTML=ids.length?`<table><tr><th>Rider ID</th><th>Rider Name</th><th>Handled Town Names (comma-separated)</th><th>Parcels in inventory</th><th>Warnings</th><th></th></tr>${ids.map(i=>{const t=S.rt[i],dup=t.filter(x=>(own[nk(x)]||[]).length>1).map(x=>x+' also: '+own[nk(x)].filter(y=>y!=i).join('/'));
-  return`<tr><td><b>${esc(i)}</b></td><td>${esc(riderName(i))||'—'}</td><td><input data-rt="${esc(i)}" value="${esc(t.join(', '))}" style="width:100%;min-width:260px"></td><td>${S.inv?t.reduce((a,x)=>a+(ck[nk(x)]||0),0):'—'}</td><td class="WRONG">${esc(dup.concat(nro&&!S.ro[i]?['Not in active roster']:[]).join(' · '))}</td><td><button class="btn sm s" data-rdel="${esc(i)}">Remove</button></td></tr>`}).join('')}</table>`:'<span class="mu">No riders yet. Add a Rider ID above.</span>';
+ $('rtt').innerHTML=ids.length?`<table><tr><th>Rider ID</th><th>Rider Name</th><th>Handled towns</th><th>Parcels in inventory</th><th>Warnings</th><th></th></tr>${ids.map(i=>{const t=S.rt[i],dup=t.filter(x=>(own[nk(x)]||[]).length>1).map(x=>x+' also: '+own[nk(x)].filter(y=>y!=i).join('/'));
+  return`<tr><td><b>${esc(i)}</b></td><td>${esc(riderName(i))||'—'}</td><td class="rtc"><button class="btn sm s" type="button" data-ms="${esc(i)}">Select towns ▾ (${t.length})</button> ${t.slice().sort((a,b)=>a.localeCompare(b)).map(x=>`<span class="tag">${esc(x)}<b data-rm="${esc(x)}" data-r="${esc(i)}" title="Remove town">×</b></span>`).join('')}</td><td>${S.inv?t.reduce((a,x)=>a+(ck[nk(x)]||0),0):'—'}</td><td class="WRONG">${esc(dup.concat(nro&&!S.ro[i]?['Not in active roster']:[]).join(' · '))}</td><td><button class="btn sm s" data-rdel="${esc(i)}">Remove</button></td></tr>`}).join('')}</table>`:'<span class="mu">No riders yet. Add a Rider ID above.</span>';
  if(!ids.includes(S.tgt))S.tgt=ids.includes(S.rid)?S.rid:ids[0]||'';
  $('tgt').innerHTML=ids.map(i=>`<option ${i==S.tgt?'selected':''}>${esc(i)}</option>`).join('');
  const un=Object.entries(cnt).filter(([t])=>!own[nk(t)]).sort((a,b)=>b[1]-a[1]);
  $('un').innerHTML=(S.inv?(un.length?un.map(([t,n])=>`<button class="tag" style="cursor:pointer;border:1px solid var(--bd);color:var(--tx)" data-add="${esc(t)}">${esc(t)} (${n})</button>`).join(''):'<span class="MATCHED r">✔ Every inventory town is assigned to a rider.</span>')+(blank?`<p class="WRONG">${blank} inventory row(s) have no Town Name and are excluded from town-based expected lists.</p>`:''):'<span class="mu">Import Inventory to see unassigned towns.</span>')}
-function tab(t){S.tab=t;$('tc').style.display=t=='check'?'grid':'none';$('tf').style.display=t=='fin'?'grid':'none';$('tr').style.display=t=='rt'?'grid':'none';document.querySelectorAll('nav [data-tab]').forEach(b=>b.classList.toggle('s',b.dataset.tab!=t));if(t=='rt')renderRT();if(t=='fin')renderFin()}
-$('rtt').onchange=e=>{const i=e.target.dataset.rt;if(i===undefined)return;S.rt[i]=parseT(e.target.value);saveRT();render();renderRT()};
-$('rtt').onclick=e=>{const i=e.target.dataset.rdel;if(i===undefined||!confirm('Remove rider '+i+' and their towns?'))return;delete S.rt[i];saveRT();render();renderRT()};
+function tab(t){if(typeof closeMS=='function')closeMS();S.tab=t;$('tc').style.display=t=='check'?'grid':'none';$('tf').style.display=t=='fin'?'grid':'none';$('tr').style.display=t=='rt'?'grid':'none';document.querySelectorAll('nav [data-tab]').forEach(b=>b.classList.toggle('s',b.dataset.tab!=t));if(t=='rt')renderRT();if(t=='fin')renderFin()}
+/* --- multi-select town dropdown --- */
+let MS=null;
+function townPool(){const m=new Map(),c={};
+ if(S.inv)S.inv.recs.forEach(r=>{if(r.otherStation||!r.townName)return;const k=nk(r.townName);if(!m.has(k))m.set(k,r.townName);c[k]=(c[k]||0)+1});
+ Object.values(S.rt).forEach(a=>a.forEach(t=>{if(!m.has(nk(t)))m.set(nk(t),t)}));return{m,c}}
+function msVisible(){const{m,c}=townPool(),q=nk($('mss').value);return[...m.entries()].filter(([k,n])=>!q||k.includes(q)).sort((a,b)=>a[1].localeCompare(b[1],undefined,{numeric:true}))}
+function renderMS(){if(MS===null)return;if(!S.rt[MS]){closeMS();return}
+ const{c}=townPool(),sel=new Set(S.rt[MS].map(nk)),others={};
+ Object.keys(S.rt).forEach(i=>{if(i!=MS)S.rt[i].forEach(t=>(others[nk(t)]=others[nk(t)]||[]).push(i))});
+ const list=msVisible(),l=$('msl'),st=l.scrollTop;
+ $('msh').innerHTML='Rider <b>'+esc(MS)+'</b>'+(riderName(MS)?' · '+esc(riderName(MS)):'')+' · <b>'+sel.size+'</b> town(s) selected'+(S.inv?'':'<br>Import Inventory to load the town list.');
+ l.innerHTML=list.length?list.map(([k,n])=>`<label><input type="checkbox" data-t="${esc(n)}" ${sel.has(k)?'checked':''}><span class="tn" title="${esc(n)}">${esc(n)}</span><span class="tc">${c[k]?c[k]+(c[k]==1?' parcel':' parcels'):'—'}</span>${others[k]?`<span class="to" title="Also assigned to: ${esc(others[k].join(', '))}">also: ${esc(others[k].length>2?others[k].length+' riders':others[k].join('/'))}</span>`:''}</label>`).join(''):'<div class="mu" style="padding:6px">'+(S.inv?'No towns match.':'No towns yet. Import Inventory first.')+'</div>';
+ l.scrollTop=st}
+function posMS(){if(MS===null)return;const b=document.querySelector('[data-ms="'+CSS.escape(MS)+'"]');if(!b){closeMS();return}
+ const p=$('msp'),r=b.getBoundingClientRect();p.style.left=Math.max(8,Math.min(r.left,innerWidth-p.offsetWidth-8))+'px';
+ const below=innerHeight-r.bottom-8,h=p.offsetHeight;p.style.top=(below>=Math.min(h,260)||r.top<h?r.bottom+4:Math.max(8,r.top-h-4))+'px'}
+function openMS(i){MS=i;$('mss').value='';$('msp').hidden=false;renderMS();posMS();$('mss').focus()}
+function closeMS(){MS=null;$('msp').hidden=true}
+function setTowns(i,arr){S.rt[i]=[...new Map(arr.map(t=>[nk(t),t])).values()];saveRT();render();renderRT();renderMS();posMS()}
+$('mss').oninput=renderMS;
+$('msl').onchange=e=>{const t=e.target.dataset.t;if(t===undefined||MS===null)return;const cur=S.rt[MS].filter(x=>nk(x)!=nk(t));setTowns(MS,e.target.checked?cur.concat(t):cur)};
+$('msp').onclick=e=>{const a=e.target.dataset.a;if(!a||MS===null)return;const shown=msVisible().map(([k,n])=>n),ks=new Set(shown.map(nk)),cur=S.rt[MS].filter(x=>!ks.has(nk(x)));setTowns(MS,a=='all'?cur.concat(shown):cur)};
+document.addEventListener('click',e=>{if(MS!==null&&!e.target.closest('#msp')&&!e.target.closest('[data-ms]'))closeMS()});
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&MS!==null)closeMS()});
+addEventListener('resize',posMS);addEventListener('scroll',posMS,true);
+$('rtt').onclick=e=>{const ms=e.target.closest('[data-ms]');if(ms){const i=ms.dataset.ms;MS===i?closeMS():openMS(i);return}
+ const rm=e.target.closest('[data-rm]');if(rm){const i=rm.dataset.r;S.rt[i]=S.rt[i].filter(x=>x!=rm.dataset.rm);saveRT();render();renderRT();renderMS();return}
+ const i=e.target.dataset.rdel;if(i===undefined||!confirm('Remove rider '+i+' and their towns?'))return;if(MS===i)closeMS();delete S.rt[i];saveRT();render();renderRT()};
 $('un').onclick=e=>{const t=e.target.dataset.add;if(t===undefined||!S.tgt)return toast('Add a rider first');S.rt[S.tgt].push(t);saveRT();render();renderRT()};
 function importRoster(raw){const cols=Object.keys(raw[0]||{}),g=n=>cols.find(c=>nk(c)==n),ci=g('driverid'),cn=g('drivername'),cs=g('spxstatus'),cg=g('drivergroup');
  if(!ci||!cs)throw new Error('Rider file needs "Driver ID" and "SPX Status" columns');
